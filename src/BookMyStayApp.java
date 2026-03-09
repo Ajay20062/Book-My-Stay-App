@@ -2,7 +2,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
-
  * =====================================================
  * MAIN CLASS - BookMyStayApp
  * =====================================================
@@ -10,18 +9,20 @@ import java.util.Map;
  * UC1 - Application Startup
  * UC2 - Basic Room Types & Static Availability
  * UC3 - Centralized Room Inventory Management
+ * UC4 - Room Search & Availability Check
  *
  * Demonstrates abstraction, inheritance, polymorphism,
- * and centralized inventory management using HashMap.
+ * centralized inventory management, and read-only search.
  *
  * @author  T R Ajay Dharrsan
- * @version 3.0
+ * @version 4.0
  */
 
 /*-------------------------------------------------------
-ABSTRACT CLASS : Room
+ABSTRACT CLASS : UC2 Room
 -------------------------------------------------------*/
 abstract class Room {
+
     private final String roomType;
     private final int beds;
     private final int size;
@@ -47,7 +48,7 @@ abstract class Room {
 }
 
 /*-------------------------------------------------------
-SINGLE ROOM
+ROOM TYPES
 -------------------------------------------------------*/
 class SingleRoom extends Room {
     public SingleRoom() {
@@ -55,21 +56,13 @@ class SingleRoom extends Room {
     }
 }
 
-/*-------------------------------------------------------
-DOUBLE ROOM
--------------------------------------------------------*/
 class DoubleRoom extends Room {
     public DoubleRoom() {
         super("Double Room", 2, 350, 3500);
     }
-
 }
 
-/*-------------------------------------------------------
-SUITE ROOM
--------------------------------------------------------*/
 class SuiteRoom extends Room {
-
     public SuiteRoom() {
         super("Suite Room", 3, 600, 7000);
     }
@@ -79,29 +72,26 @@ class SuiteRoom extends Room {
 ROOM INVENTORY (UC3)
 -------------------------------------------------------*/
 class RoomInventory {
+
     private Map<String, Integer> inventory;
 
     public RoomInventory() {
 
         inventory = new HashMap<>();
 
-
         inventory.put("Single Room", 5);
         inventory.put("Double Room", 3);
         inventory.put("Suite Room", 2);
     }
 
-
     public int getAvailability(String roomType) {
         return inventory.getOrDefault(roomType, 0);
     }
 
-    /* Update availability */
     public void updateAvailability(String roomType, int newCount) {
         inventory.put(roomType, newCount);
     }
 
-    /* Display full inventory */
     public void displayInventory() {
 
         System.out.println("------------- CURRENT ROOM INVENTORY -------------");
@@ -111,6 +101,31 @@ class RoomInventory {
         }
 
         System.out.println("--------------------------------------------------");
+    }
+}
+
+/*-------------------------------------------------------
+ROOM SEARCH SERVICE (UC4)
+-------------------------------------------------------*/
+class RoomSearchService {
+
+    public void searchAvailableRooms(Room[] rooms, RoomInventory inventory) {
+
+        System.out.println("=======================================================");
+        System.out.println("            AVAILABLE ROOMS FOR BOOKING                ");
+        System.out.println("=======================================================");
+
+        for (Room room : rooms) {
+
+            int available = inventory.getAvailability(room.getRoomType());
+
+            if (available > 0) {
+
+                room.displayRoomDetails();
+                System.out.println("Available Rooms : " + available);
+                System.out.println("---------------------------------------");
+            }
+        }
     }
 }
 
@@ -125,35 +140,27 @@ public class BookMyStayApp {
         System.out.println("                    BOOK MY STAY APP                   ");
         System.out.println("=======================================================");
         System.out.println();
-        System.out.println("                     Version  : 3.0                    ");
-        System.out.println("         Status   : Application Started Successfully   ");
-        System.out.println("   Message : Welcome to the Book My Stay Application!  ");
+        System.out.println("                    Version  : 4.0                     ");
+        System.out.println("       Status   : Application Started Successfully     ");
+        System.out.println("   Message  : Welcome to the Book My Stay Application! ");
         System.out.println();
         System.out.println("=======================================================");
-        /* Create Room Objects */
+
+        /* Room Objects */
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
-        /* Initialize centralized inventory */
+        Room[] rooms = {single, doubleRoom, suite};
+
+        /* Inventory */
         RoomInventory inventory = new RoomInventory();
 
-        System.out.println("=======================================================");
-        System.out.println("                 ROOM AVAILABILITY STATUS              ");
-        System.out.println("=======================================================");
-        System.out.println();
+        /* UC4 Search Service */
+        RoomSearchService searchService = new RoomSearchService();
 
-        single.displayRoomDetails();
-        System.out.println("Available    : " + inventory.getAvailability(single.getRoomType()));
-        System.out.println("---------------------------------------");
-
-        doubleRoom.displayRoomDetails();
-        System.out.println("Available    : " + inventory.getAvailability(doubleRoom.getRoomType()));
-        System.out.println("---------------------------------------");
-
-        suite.displayRoomDetails();
-        System.out.println("Available    : " + inventory.getAvailability(suite.getRoomType()));
-        System.out.println("---------------------------------------");
+        /* Guest searches available rooms */
+        searchService.searchAvailableRooms(rooms, inventory);
 
         System.out.println();
         inventory.displayInventory();
