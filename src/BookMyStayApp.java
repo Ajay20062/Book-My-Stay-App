@@ -1,4 +1,5 @@
 import java.util.*;
+import java.io.*;
 
 /**
  * =====================================================
@@ -16,9 +17,9 @@ import java.util.*;
  * UC9 - Error Handling & Validation
  * UC10 - Booking Cancellation & Inventory Rollback
  * UC11 - Concurrent Booking Simulation
-
+ * UC12 - Data Persistence & System Recovery
  * Author : T R Ajay Dharrsan
- * Version : 11.0
+ * Version : 12.0
  */
 
 /*------------------------------------------------
@@ -33,7 +34,7 @@ class InvalidBookingException extends Exception{
 /*------------------------------------------------
 ROOM ABSTRACT CLASS (UC2)
 ------------------------------------------------*/
-abstract class Room{
+abstract class Room implements Serializable{
 
     private final String roomType;
     private final int beds;
@@ -71,7 +72,7 @@ class SuiteRoom extends Room{
 /*------------------------------------------------
 ROOM INVENTORY (UC3)
 ------------------------------------------------*/
-class RoomInventory{
+class RoomInventory implements Serializable{
 
     private final Map<String,Integer> inventory=new HashMap<>();
 
@@ -105,7 +106,9 @@ class RoomInventory{
     }
 
     public void displayInventory(){
+
         System.out.println("\nROOM INVENTORY");
+
         for(Map.Entry<String,Integer> e:inventory.entrySet())
             System.out.println(e.getKey()+" : "+e.getValue());
     }
@@ -114,7 +117,8 @@ class RoomInventory{
 /*------------------------------------------------
 RESERVATION CLASS
 ------------------------------------------------*/
-record Reservation(String guestName,String roomType,String roomId){}
+record Reservation(String guestName,String roomType,String roomId)
+        implements Serializable{}
 
 /*------------------------------------------------
 BOOKING REQUEST QUEUE (UC5)
@@ -139,7 +143,7 @@ class BookingRequestQueue{
 /*------------------------------------------------
 BOOKING HISTORY (UC8)
 ------------------------------------------------*/
-class BookingHistory{
+class BookingHistory implements Serializable{
 
     private final List<Reservation> history=new ArrayList<>();
 
@@ -241,46 +245,6 @@ class AddOnServiceManager{
 }
 
 /*------------------------------------------------
-ROOM ALLOCATION SERVICE (UC6)
-------------------------------------------------*/
-class RoomAllocationService{
-
-    public void processBookings(
-            BookingRequestQueue queue,
-            RoomInventory inventory,
-            BookingHistory history){
-
-        while(!queue.isEmpty()){
-
-            Reservation req=queue.nextRequest();
-
-            try{
-
-                inventory.decrementRoom(req.roomType());
-
-                history.addReservation(req);
-
-                System.out.println(
-                        "Booking Confirmed : "+
-                                req.guestName()+" | "+
-                                req.roomType()+" | "+
-                                req.roomId()
-                );
-
-            }
-            catch(Exception e){
-
-                System.out.println(
-                        "Booking Failed for "+
-                                req.guestName()+" : "+
-                                e.getMessage()
-                );
-            }
-        }
-    }
-}
-
-/*------------------------------------------------
 CONCURRENT BOOKING PROCESSOR (UC11)
 ------------------------------------------------*/
 class ConcurrentBookingProcessor extends Thread{
@@ -374,6 +338,50 @@ class CancellationService{
 }
 
 /*------------------------------------------------
+PERSISTENCE SERVICE (UC12)
+------------------------------------------------*/
+class PersistenceService{
+
+    private static final String FILE="hotel_state.ser";
+
+    public static void saveState(RoomInventory inventory,BookingHistory history){
+
+        try(ObjectOutputStream out=
+                    new ObjectOutputStream(new FileOutputStream(FILE))){
+
+            out.writeObject(inventory);
+            out.writeObject(history);
+
+            System.out.println("\nSystem state saved to file.");
+
+        }catch(Exception e){
+
+            System.out.println("Error saving state : "+e.getMessage());
+        }
+    }
+
+    public static Object[] loadState(){
+
+        try(ObjectInputStream in=
+                    new ObjectInputStream(new FileInputStream(FILE))){
+
+            RoomInventory inventory=(RoomInventory) in.readObject();
+            BookingHistory history=(BookingHistory) in.readObject();
+
+            System.out.println("Previous system state restored.");
+
+            return new Object[]{inventory,history};
+
+        }catch(Exception e){
+
+            System.out.println("No previous state found. Starting fresh.");
+
+            return null;
+        }
+    }
+}
+
+/*------------------------------------------------
 MAIN APPLICATION
 ------------------------------------------------*/
 public class BookMyStayApp{
@@ -383,68 +391,52 @@ public class BookMyStayApp{
         System.out.println("=================================================");
         System.out.println("                BOOK MY STAY APP                 ");
         System.out.println("=================================================");
-        System.out.println("                 Version : 11.0                  ");
-        System.out.println("    Status : Application Started Successfully    ");
+        System.out.println("                 Version : 12.0                  ");
         System.out.println("=================================================");
 
-        RoomInventory inventory=new RoomInventory();
-        BookingRequestQueue queue=new BookingRequestQueue();
-        BookingHistory history=new BookingHistory();
+        RoomInventory inventory;
+        BookingHistory history;
 
-        /* Simulated Booking Requests */
+        Object[] state=PersistenceService.loadState();
+
+        if(state!=null){
+            inventory=(RoomInventory)state[0];
+            history=(BookingHistory)state[1];
+        }
+        else{
+            inventory=new RoomInventory();
+            history=new BookingHistory();
+        }
+
+        BookingRequestQueue queue=new BookingRequestQueue();
+
         queue.addRequest(new Reservation("Ajay","Single Room","SR101"));
         queue.addRequest(new Reservation("Rahul","Double Room","DR201"));
         queue.addRequest(new Reservation("Priya","Suite Room","SU301"));
-        queue.addRequest(new Reservation("Karan","Single Room","SR102"));
-        queue.addRequest(new Reservation("Meera","Double Room","DR202"));
-        queue.addRequest(new Reservation("Ravi","Single Room","SR103"));
 
         System.out.println("\nStarting Concurrent Booking Simulation...\n");
 
-        ConcurrentBookingProcessor t1 =
+        ConcurrentBookingProcessor t1=
                 new ConcurrentBookingProcessor(queue,inventory,history);
-
-        ConcurrentBookingProcessor t2 =
-                new ConcurrentBookingProcessor(queue,inventory,history);
-
-        ConcurrentBookingProcessor t3 =
+        ConcurrentBookingProcessor t2=
                 new ConcurrentBookingProcessor(queue,inventory,history);
 
         t1.start();
         t2.start();
-        t3.start();
 
         try{
             t1.join();
             t2.join();
-            t3.join();
-        }
-        catch(Exception e){
-            System.out.println(e.getMessage());
-        }
+        }catch(Exception _){}
 
         inventory.displayInventory();
-
-        AddOnServiceManager addOn=new AddOnServiceManager();
-        addOn.addService("SR101",new AddOnService("Breakfast",500));
-        addOn.addService("SR101",new AddOnService("Spa",2000));
-
-        System.out.println("\nAdd-on services for SR101");
-        addOn.displayServices("SR101");
 
         BookingReportService report=new BookingReportService();
         report.generateReport(history.getHistory());
 
-        CancellationService cancel=new CancellationService();
+        PersistenceService.saveState(inventory,history);
 
-        try{
-            cancel.cancelBooking("SR101",history,inventory);
-        }
-        catch(Exception e){
-            System.out.println(e.getMessage());
-        }
-
-        inventory.displayInventory();
-        cancel.showRollback();
+        System.out.println("\nSystem shutdown complete.");
     }
 }
+
