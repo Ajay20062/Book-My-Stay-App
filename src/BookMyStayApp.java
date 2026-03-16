@@ -11,11 +11,11 @@ import java.util.*;
  * UC4 - Room Search
  * UC5 - Booking Request Queue
  * UC6 - Reservation Confirmation & Room Allocation
- * Demonstrates safe room allocation and prevention of
- * double-booking using Set and HashMap.
+ * UC7 - Add-On Service Selection
+ * UC8 - Booking History & Reporting
  *
  * @author  T R Ajay Dharrsan
- * @version 6.0
+ * @version 8.0
  */
 
 /*-------------------------------------------------------
@@ -132,6 +132,54 @@ class Reservation {
 }
 
 /*-------------------------------------------------------
+BOOKING HISTORY (UC8)
+-------------------------------------------------------*/
+class BookingHistory {
+
+    private final List<Reservation> history = new ArrayList<>();
+
+    public void addReservation(Reservation r) {
+        history.add(r);
+    }
+
+    public List<Reservation> getHistory() {
+        return history;
+    }
+}
+
+/*-------------------------------------------------------
+BOOKING REPORT SERVICE
+-------------------------------------------------------*/
+class BookingReportService {
+
+    public void generateReport(List<Reservation> reservations) {
+
+        System.out.println("\n=========== BOOKING HISTORY REPORT ===========");
+
+        Map<String,Integer> summary = new HashMap<>();
+
+        for(Reservation r : reservations){
+
+            System.out.println("Guest : " + r.getGuestName() +
+                    " | Room : " + r.getRoomType());
+
+            summary.put(
+                    r.getRoomType(),
+                    summary.getOrDefault(r.getRoomType(),0)+1
+            );
+        }
+
+        System.out.println("\n--------- BOOKING SUMMARY ---------");
+
+        for(Map.Entry<String,Integer> entry : summary.entrySet()){
+            System.out.println(entry.getKey()+" Booked : "+entry.getValue());
+        }
+
+        System.out.println("-----------------------------------");
+    }
+}
+
+/*-------------------------------------------------------
 BOOKING REQUEST QUEUE
 -------------------------------------------------------*/
 class BookingRequestQueue {
@@ -156,7 +204,7 @@ class BookingRequestQueue {
 }
 
 /*-------------------------------------------------------
-ROOM ALLOCATION SERVICE (UC6)
+ROOM ALLOCATION SERVICE
 -------------------------------------------------------*/
 class RoomAllocationService {
 
@@ -173,7 +221,10 @@ class RoomAllocationService {
         allocatedRooms.put("Suite Room", new HashSet<>());
     }
 
-    public void processBookings(BookingRequestQueue queue, RoomInventory inventory) {
+    public void processBookings(
+            BookingRequestQueue queue,
+            RoomInventory inventory,
+            BookingHistory history) {
 
         System.out.println("=================================================");
         System.out.println("        PROCESSING BOOKING REQUESTS (FIFO)       ");
@@ -201,11 +252,13 @@ class RoomAllocationService {
                 System.out.println("RoomID : " + roomId);
                 System.out.println("---------------------------------------");
 
+                /* UC8 - Store booking in history */
+                history.addReservation(request);
+
             } else {
 
                 System.out.println("Reservation Failed (No Rooms Available)");
                 System.out.println("Guest : " + guest);
-                System.out.println("Requested : " + roomType);
                 System.out.println("---------------------------------------");
             }
         }
@@ -226,21 +279,67 @@ class RoomAllocationService {
 }
 
 /*-------------------------------------------------------
+ADD ON SERVICE (UC7)
+-------------------------------------------------------*/
+record AddOnService(String serviceName, double cost) {
+
+}
+
+/*-------------------------------------------------------
+ADD ON SERVICE MANAGER
+-------------------------------------------------------*/
+class AddOnServiceManager{
+
+    private final Map<String,List<AddOnService>> services=new HashMap<>();
+
+    public void addService(String reservationId,AddOnService service){
+
+        services
+                .computeIfAbsent(reservationId,k->new ArrayList<>())
+                .add(service);
+    }
+
+    public void displayServices(String reservationId){
+
+        List<AddOnService> list=services.get(reservationId);
+
+        if(list==null){
+            System.out.println("No Add-On Services Selected");
+            return;
+        }
+
+        double total=0;
+
+        System.out.println("\nAdd-On Services for "+reservationId);
+
+        for(AddOnService s:list){
+
+            System.out.println(s.serviceName()+" : ₹"+s.cost());
+            total+=s.cost();
+        }
+
+        System.out.println("Total Add-On Cost : ₹"+total);
+    }
+}
+
+/*-------------------------------------------------------
 MAIN APPLICATION
 -------------------------------------------------------*/
 public class BookMyStayApp {
+
     public static void main(String[] args) {
+
         System.out.println("=================================================");
         System.out.println("                BOOK MY STAY APP                 ");
         System.out.println("=================================================");
-        System.out.println("                 Version : 6.0                   ");
+        System.out.println("                 Version : 8.0                   ");
         System.out.println("    Status  : Application Started Successfully   ");
         System.out.println();
         System.out.println("=================================================");
 
         RoomInventory inventory = new RoomInventory();
-
         BookingRequestQueue queue = new BookingRequestQueue();
+        BookingHistory history = new BookingHistory();
 
         queue.addRequest(new Reservation("Ajay", "Single Room"));
         queue.addRequest(new Reservation("Rahul", "Double Room"));
@@ -249,9 +348,25 @@ public class BookMyStayApp {
 
         RoomAllocationService allocationService = new RoomAllocationService();
 
-        allocationService.processBookings(queue, inventory);
+        allocationService.processBookings(queue, inventory, history);
 
         System.out.println();
         inventory.displayInventory();
+
+        /* UC7 Add On Services */
+
+        AddOnServiceManager serviceManager = new AddOnServiceManager();
+
+        serviceManager.addService("RES101",new AddOnService("Breakfast",500));
+        serviceManager.addService("RES101",new AddOnService("Airport Pickup",1200));
+        serviceManager.addService("RES101",new AddOnService("Spa",2000));
+
+        serviceManager.displayServices("RES101");
+
+        /* UC8 Booking Report */
+
+        BookingReportService reportService = new BookingReportService();
+
+        reportService.generateReport(history.getHistory());
     }
 }
