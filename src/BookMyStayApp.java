@@ -392,6 +392,7 @@ public class BookMyStayApp{
         System.out.println("                BOOK MY STAY APP                 ");
         System.out.println("=================================================");
         System.out.println("                 Version : 12.0                  ");
+        System.out.println("    Status : Application Started Successfully    ");
         System.out.println("=================================================");
 
         RoomInventory inventory;
